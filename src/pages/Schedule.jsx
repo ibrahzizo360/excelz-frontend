@@ -20,6 +20,7 @@ const Schedule = () => {
   const [freelancer, setFreelancer] = useState({});
   const [client, setClient] = useState({});
   const [formData, setFormData] = useState({
+    id: "",
     title: "",
     location: "",
     description: "",
@@ -97,6 +98,7 @@ const Schedule = () => {
 
     setLoading(true);
     try {
+      formData.id = new Date().getTime().toString();
       await createMeeting({
         ...formData,
         participants: [freelancer.id, client.id],
