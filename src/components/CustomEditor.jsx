@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from "react";
+import { createMeeting, updateMeeting } from "../services/meetings.service";
+import { Alert } from "@mui/material";
+import { transformMeetingData } from "../utils/meeting";
 
 const CustomEditor = ({ scheduler }) => {
   const { state, close, onConfirm, loading, edited } = scheduler;
 
   const [title, setTitle] = useState(edited?.title || "");
+  const [description, setDescription] = useState(edited?.subtitle || "");
+  const [location, setLocation] = useState(edited?.location || "");
   const [start, setStart] = useState(edited?.start || new Date());
   const [end, setEnd] = useState(edited?.end || new Date());
 
@@ -13,22 +18,60 @@ const CustomEditor = ({ scheduler }) => {
     setEnd(edited?.end || new Date());
   }, [edited]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title) return alert("Title is required");
+    if (!location) return alert("Location is required");
+
     loading(true);
 
-    setTimeout(() => {
-      const newEvent = {
-        event_id: edited?.event_id || Math.random(),
-        title,
-        start: new Date(start),
-        end: new Date(end),
-      };
+    let newEvent;
+
+    try {
+      if (!edited) {
+        const createdMeeting = await createMeeting({
+          id: new Date().getTime().toString(),
+          title,
+          description,
+          location,
+          date: start.toISOString().slice(0, 10),
+          time: start.toISOString().slice(11, 16),
+          duration: (end - start) / 60000,
+          participants: ["1", "2"],
+        });
+
+        newEvent = {
+          ...transformMeetingData([createdMeeting])[0],
+        };
+      } else {
+        await updateMeeting(edited.event_id, {
+          title,
+          description,
+          location,
+          date: start.toISOString().slice(0, 10),
+          time: start.toISOString().slice(11, 16),
+          duration: (end - start) / 60000,
+          participants: ["1", "2"],
+        });
+
+        newEvent = {
+          event_id: edited.event_id,
+          title,
+          subtitle: description || "No Description",
+          start: new Date(start),
+          end: new Date(end),
+          location,
+          participants: ["1", "2"],
+        };
+      }
 
       onConfirm(newEvent, edited ? "edit" : "create");
-      loading(false);
       close();
-    }, 500);
+    } catch (error) {
+      console.error("Error saving meeting:", error);
+      alert("An error occurred while saving the meeting.");
+    } finally {
+      loading(false);
+    }
   };
 
   return (
@@ -41,6 +84,22 @@ const CustomEditor = ({ scheduler }) => {
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
+        className="w-full mb-4 p-2 border rounded"
+      />
+
+      <label className="block mb-2 text-sm font-medium">Description</label>
+      <input
+        type="text"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="w-full mb-4 p-2 border rounded"
+      />
+
+      <label className="block mb-2 text-sm font-medium">Location</label>
+      <input
+        type="text"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
         className="w-full mb-4 p-2 border rounded"
       />
 

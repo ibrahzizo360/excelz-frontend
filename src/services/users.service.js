@@ -6,9 +6,9 @@ export const fetchUsers = async () => {
   return response.data;
 };
 
-export const fetchAvailableTimeSlots = async (userId) => {
+export const fetchAvailableTimeSlots = async (userId, date) => {
   const response = await axios.get(
-    `${API_URL}/users/${userId}/available-slots`
+    `${API_URL}/users/${userId}/available-slots?date=${date}`
   );
   return response.data;
 };

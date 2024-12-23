@@ -51,7 +51,7 @@ const Schedule = () => {
   useEffect(() => {
     if (formData.date) {
       setLoadingSlots(true);
-      fetchAvailableTimeSlots(freelancer.id)
+      fetchAvailableTimeSlots(freelancer.id, formData.date)
         .then((response) => {
           setAvailableSlots(response.availableTimeSlots || []);
         })
@@ -110,8 +110,6 @@ const Schedule = () => {
       setLoading(false);
     }
   };
-
-  console.log(formData.duration);
 
   return (
     <Box sx={{ p: 2, maxWidth: 900, mx: "auto", mt: 2 }}>
@@ -276,7 +274,7 @@ const Schedule = () => {
             ? "1 hour"
             : formData.duration === 90
             ? "1.5 hours"
-            : "2 hours" // default to "2 hours" if duration is not recognized
+            : "2 hours"
         }
         onChange={handleDurationSelection}
         fullWidth
