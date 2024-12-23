@@ -1,83 +1,107 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { API_URL } from "../constants/urls";
+import {
+  Box,
+  Button,
+  CircularProgress,
+  MenuItem,
+  Select,
+  TextField,
+  Typography,
+} from "@mui/material";
+import Grid from "@mui/material/Grid2";
+import { fetchAvailableTimeSlots, fetchUsers } from "../services/users.service";
+import { createMeeting } from "../services/meetings.service";
+import RateReviewOutlinedIcon from "@mui/icons-material/RateReviewOutlined";
+import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import TodayOutlinedIcon from "@mui/icons-material/TodayOutlined";
 
 const Schedule = () => {
-  const [freelancer, setFreelancer] = useState({
-    id: "123",
-    name: "John Doe",
-    profilePicture: "https://via.placeholder.com/150",
-    profession: "Web Developer",
-    email: "john.doe@example.com",
+  const [freelancer, setFreelancer] = useState({});
+  const [client, setClient] = useState({});
+  const [formData, setFormData] = useState({
+    title: "",
+    location: "",
+    description: "",
+    date: "",
+    time: "",
+    duration: 30,
+    notes: "",
   });
-
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
   const [availableSlots, setAvailableSlots] = useState([]);
-  const [availableDates, setAvailableDates] = useState([]);
-  const [loadingDates, setLoadingDates] = useState(false);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [duration, setDuration] = useState("1 hour");
-  const [notes, setNotes] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Fetch available dates when the component mounts
   useEffect(() => {
-    const fetchAvailableDates = async () => {
-      setLoadingDates(true);
+    const fetchUsersData = async () => {
       try {
-        const response = await axios.get(
-          `${API_URL}/users/${freelancer.id}/available-dates`
-        );
-        setAvailableDates(response.data.availableDates); // e.g., ["2024-12-25", "2024-12-26"]
+        const response = await fetchUsers();
+        setFreelancer(response[0]);
+        setClient(response[1]);
       } catch (error) {
-        console.error("Error fetching available dates:", error);
-      } finally {
-        setLoadingDates(false);
+        console.error("Error fetching users:", error);
       }
     };
 
-    fetchAvailableDates();
-  }, [freelancer.id]);
+    fetchUsersData();
+  }, []);
 
-  // Fetch available slots for the selected date
   useEffect(() => {
-    if (!date) return;
-
-    const fetchAvailableSlots = async () => {
+    if (formData.date) {
       setLoadingSlots(true);
-      try {
-        const response = await axios.get(
-          `${API_URL}/users/${freelancer.id}/available-slots?date=${date}`
-        );
-        setAvailableSlots(response.data.availableTimeSlots);
-      } catch (error) {
-        console.error("Error fetching available slots:", error);
-        setAvailableSlots([]);
-      } finally {
-        setLoadingSlots(false);
-      }
-    };
+      fetchAvailableTimeSlots(freelancer.id)
+        .then((response) => {
+          setAvailableSlots(response.availableTimeSlots || []);
+        })
+        .catch((error) => {
+          console.error("Error fetching available slots:", error);
+          setAvailableSlots([]);
+        })
+        .finally(() => setLoadingSlots(false));
+    }
+  }, [formData.date, freelancer.id]);
 
-    fetchAvailableSlots();
-  }, [date, freelancer.id]);
+  const handleInputChange = (e) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleTimeSelection = (slot) => {
+    const [processedTime] = slot.split(" - ");
+    setSelectedSlot(slot);
+    setFormData((prev) => ({ ...prev, time: processedTime }));
+  };
+
+  const handleDurationSelection = (event) => {
+    const duration = event.target.value;
+    let durationInMinutes = 30;
+    if (duration === "1 hour") {
+      durationInMinutes = 60;
+    } else if (duration === "1.5 hours") {
+      durationInMinutes = 90;
+    } else if (duration === "2 hours") {
+      durationInMinutes = 120;
+    }
+
+    setFormData((prev) => ({ ...prev, duration: durationInMinutes }));
+  };
 
   const handleSchedule = async () => {
-    if (!date || !time) {
-      alert("Please select both date and time for the meeting!");
+    const { title, location, date, time } = formData;
+    if (!title || !location || !date || !time) {
+      alert("Please fill in all required fields!");
       return;
     }
 
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/meetings`, {
-        date,
-        time,
-        duration,
-        notes,
-        participants: [freelancer.id, "clientId"], // Replace 'clientId' with actual client ID
+      await createMeeting({
+        ...formData,
+        participants: [freelancer.id, client.id],
       });
+
       setSuccessMessage("Meeting scheduled successfully!");
     } catch (error) {
       console.error("Error scheduling meeting:", error);
@@ -87,124 +111,202 @@ const Schedule = () => {
     }
   };
 
-  const isDateDisabled = (dateString) => !availableDates.includes(dateString);
+  console.log(formData.duration);
 
   return (
-    <div className="p-6 max-w-lg mx-auto bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-4">Schedule a Meeting</h2>
-
-      {/* Freelancer Details */}
-      <div className="flex items-center mb-6">
+    <Box sx={{ p: 2, maxWidth: 900, mx: "auto", mt: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 1, sm: 4 },
+          alignItems: { xs: "center", sm: "flex-start" },
+          mb: 2,
+        }}
+      >
         <img
-          src={freelancer.profilePicture}
+          src="/sample-avatar.png"
           alt="Freelancer"
-          className="w-16 h-16 rounded-full mr-4"
-        />
-        <div>
-          <h3 className="text-lg font-semibold">{freelancer.name}</h3>
-          <p className="text-gray-500">{freelancer.profession}</p>
-          <p className="text-gray-500">{freelancer.email}</p>
-        </div>
-      </div>
-
-      {/* Meeting Scheduling Form */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1" htmlFor="date">
-          Select Date
-        </label>
-        <input
-          type="date"
-          id="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          min={new Date().toISOString().split("T")[0]} // Disable past dates
-          onKeyDown={(e) => e.preventDefault()} // Prevent manual input
-          disabled={loadingDates} // Disable while loading dates
           style={{
-            backgroundColor: loadingDates ? "#f3f3f3" : "",
-            cursor: loadingDates ? "not-allowed" : "",
+            width: "150px",
+            height: "150px",
+            borderRadius: "50%",
+            objectFit: "cover",
           }}
         />
-        {loadingDates && (
-          <p className="text-sm text-gray-500">Loading dates...</p>
+        <Box
+          sx={{
+            textAlign: { xs: "center", sm: "left" },
+            mt: { xs: 2, sm: 0 },
+          }}
+        >
+          <Typography
+            variant="h5"
+            sx={{
+              mt: 2,
+              fontSize: { xs: "1.5rem", sm: "1.8rem" },
+            }}
+          >
+            Schedule a Meeting With
+          </Typography>
+          <Typography
+            variant="h5"
+            sx={{
+              fontSize: { xs: "1.5rem", sm: "1.8rem" },
+            }}
+          >
+            {freelancer.name || "Freelancer"} Johnson
+          </Typography>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              mt: 0.5,
+              color: "textSecondary",
+              fontSize: { xs: "1rem", sm: "1.3rem" },
+            }}
+          >
+            Senior UI/UX Designer
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <RateReviewOutlinedIcon
+          color="action"
+          sx={{ width: 30, height: 30, mt: 1 }}
+        />
+        <TextField
+          label="Title"
+          id="title"
+          value={formData.title}
+          onChange={handleInputChange}
+          fullWidth
+          size="small"
+          required
+          margin="normal"
+        />
+      </Box>
+      <Box sx={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <LocationOnOutlinedIcon
+          color="action"
+          sx={{ width: 30, height: 30, mt: 1 }}
+        />
+        <TextField
+          label="Location"
+          id="location"
+          value={formData.location}
+          onChange={handleInputChange}
+          fullWidth
+          required
+          size="small"
+          margin="normal"
+        />
+      </Box>
+      <Box sx={{ display: "flex", gap: 4 }}>
+        <DescriptionOutlinedIcon
+          color="action"
+          sx={{ width: 30, height: 30, mt: 3 }}
+        />
+        <TextField
+          label="Description"
+          id="description"
+          value={formData.description}
+          onChange={handleInputChange}
+          fullWidth
+          multiline
+          size="small"
+          rows={3}
+          margin="normal"
+        />
+      </Box>
+      <Box sx={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <TodayOutlinedIcon
+          color="action"
+          sx={{ width: 30, height: 30, mt: 1 }}
+        />
+        <TextField
+          label="Select Date"
+          id="date"
+          type="date"
+          value={formData.date}
+          onChange={handleInputChange}
+          fullWidth
+          required
+          InputLabelProps={{ shrink: true }}
+          size="small"
+          margin="normal"
+        />
+      </Box>
+      <Typography variant="subtitle1" sx={{ mt: 2 }}>
+        Available Time Slots
+      </Typography>
+      {!formData.date ? (
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+          Select a date to retrieve the user's available time slots.
+        </Typography>
+      ) : loadingSlots ? (
+        <CircularProgress />
+      ) : availableSlots.length > 0 ? (
+        <Grid container spacing={1} sx={{ mt: 1 }}>
+          {availableSlots.map((slot, index) => (
+            <Grid item key={index}>
+              <Button
+                variant={selectedSlot === slot ? "contained" : "outlined"}
+                onClick={() => handleTimeSelection(slot)}
+              >
+                {slot}
+              </Button>
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+          No time slots available for the selected date.
+        </Typography>
+      )}
+      <Typography variant="subtitle1" sx={{ mt: 2 }}>
+        Duration
+      </Typography>
+      <Select
+        id="duration"
+        value={
+          formData.duration === 30
+            ? "30 minutes"
+            : formData.duration === 60
+            ? "1 hour"
+            : formData.duration === 90
+            ? "1.5 hours"
+            : "2 hours" // default to "2 hours" if duration is not recognized
+        }
+        onChange={handleDurationSelection}
+        fullWidth
+        size="small"
+      >
+        {["30 minutes", "1 hour", "1.5 hours", "2 hours"].map(
+          (option, index) => (
+            <MenuItem key={index} value={option}>
+              {option}
+            </MenuItem>
+          )
         )}
-      </div>
+      </Select>
 
-      {/* Available Time Slots */}
-      {date && (
-        <div className="mb-4">
-          <h3 className="text-sm font-medium mb-1">Available Time Slots</h3>
-          {loadingSlots ? (
-            <p>Loading available slots...</p>
-          ) : availableSlots.length > 0 ? (
-            <ul className="grid grid-cols-3 gap-2">
-              {availableSlots.map((slot, index) => (
-                <li key={index}>
-                  <button
-                    onClick={() => setTime(slot)}
-                    className={`px-4 py-2 rounded ${
-                      time === slot ? "bg-blue-500 text-white" : "bg-gray-200"
-                    } hover:bg-blue-300`}
-                  >
-                    {slot}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No available time slots for this date.</p>
-          )}
-        </div>
-      )}
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1" htmlFor="duration">
-          Duration
-        </label>
-        <select
-          id="duration"
-          value={duration}
-          onChange={(e) => setDuration(e.target.value)}
-          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="30 minutes">30 minutes</option>
-          <option value="1 hour">1 hour</option>
-          <option value="1.5 hours">1.5 hours</option>
-          <option value="2 hours">2 hours</option>
-        </select>
-      </div>
-
-      <div className="mb-6">
-        <label className="block text-sm font-medium mb-1" htmlFor="notes">
-          Meeting Notes (Optional)
-        </label>
-        <textarea
-          id="notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          rows="3"
-          placeholder="Add any additional notes for the meeting..."
-        ></textarea>
-      </div>
-
-      {/* Schedule Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleSchedule}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300"
-          disabled={loading}
-        >
-          {loading ? "Scheduling..." : "Schedule Meeting"}
-        </button>
-      </div>
-
-      {/* Success Message */}
+      <Button
+        onClick={handleSchedule}
+        variant="contained"
+        color="primary"
+        fullWidth
+        sx={{ mt: 3 }}
+        disabled={loading}
+      >
+        {loading ? "Scheduling..." : "Schedule Meeting"}
+      </Button>
       {successMessage && (
-        <p className="mt-4 text-green-600 font-semibold">{successMessage}</p>
+        <Typography sx={{ mt: 2, color: "green", fontWeight: "bold" }}>
+          {successMessage}
+        </Typography>
       )}
-    </div>
+    </Box>
   );
 };
 
