@@ -14,8 +14,8 @@ const CustomEditor = ({ scheduler }) => {
 
   useEffect(() => {
     setTitle(edited?.title || "");
-    setStart(edited?.start || new Date());
-    setEnd(edited?.end || new Date());
+    setStart(edited?.start || state.start.value);
+    setEnd(edited?.end || state.end.value);
   }, [edited]);
 
   const handleSave = async () => {
